@@ -1,0 +1,9 @@
+
+testAddStockPrice=true
+testDeleteCompany=true
+testFindStockByCompanyCodeBDD=true
+testDeleteCompanyBDD=true
+testFindStockByCompanyCode=true
+testStockPriceIndex=true
+testStockPriceIndexBDD=true
+testAddCompany=true

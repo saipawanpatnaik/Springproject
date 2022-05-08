@@ -28,7 +28,8 @@ public class StockPriceDetailsDTO {
     @NotNull
 	private LocalDate stockPriceDate;
 	
-	@Temporal(TemporalType.TIME)
+	//@Temporal(TemporalType.TIME)
+	@JsonFormat(shape=JsonFormat.Shape.STRING,pattern="hh:mm:ss a")
 	@PastOrPresent
     @NotNull
 	private LocalTime stockPriceTime;

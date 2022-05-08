@@ -1,14 +1,15 @@
 package com.qart.stockmarket.services;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
-
+import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 
+import com.qart.stockmarket.dto.CompanyDetailsDTO;
 import com.qart.stockmarket.dto.CompanyStockDetailsDTO;
 import com.qart.stockmarket.dto.StockPriceDetailsDTO;
 import com.qart.stockmarket.dto.StockPriceIndexDTO;
@@ -19,7 +20,6 @@ import com.qart.stockmarket.model.CompanyDetails;
 import com.qart.stockmarket.model.StockPriceDetails;
 import com.qart.stockmarket.repository.CompanyDetailsRepository;
 import com.qart.stockmarket.repository.StockPriceRepository;
-import com.qart.stockmarket.utils.StockMarketUtility;
 
 @Service
 public class StockMarketServiceImpl implements StockMarketService {
@@ -35,9 +35,12 @@ public class StockMarketServiceImpl implements StockMarketService {
 		Optional<CompanyDetails> companyDetails = companyRepository.findById(stockPriceDetailsDTO.getCompanyCode());
 		if (companyDetails.isPresent()) {
 			if (stockPriceDetailsDTO.getStockPriceDate().compareTo(java.time.LocalDate.now()) < 0) {
-				StockPriceDetails savedStock = stockPriceRepository
-						.save(StockMarketUtility.convertToStockPriceDetails(stockPriceDetailsDTO));
-				return StockMarketUtility.convertToStockPriceDetailsDTO(savedStock);
+				StockPriceDetails stockPriceDetails =  new StockPriceDetails();
+				BeanUtils.copyProperties(stockPriceDetailsDTO, stockPriceDetails);
+				StockPriceDetails savedStock = stockPriceRepository.save(stockPriceDetails);
+				StockPriceDetailsDTO stockPriceDetailsDto =  new StockPriceDetailsDTO();
+				BeanUtils.copyProperties(savedStock, stockPriceDetailsDto);
+				return stockPriceDetailsDto;
 			} else {
 				throw new InvalidDateException("Stock Price Date must be current or past date");
 			}
@@ -52,13 +55,18 @@ public class StockMarketServiceImpl implements StockMarketService {
 	public StockPriceIndexDTO getStockPriceIndex(Long companyCode, LocalDate startDate, LocalDate endDate) {
 		List<StockPriceDetails> stockPriceDetailList = stockPriceRepository
 				.findStockByCompanyCodeBetweendates(companyCode, startDate, endDate);
-		if (stockPriceDetailList.isEmpty()) {
+		if (!stockPriceDetailList.isEmpty()) {
 			StockPriceIndexDTO stockPriceIndexDto = new StockPriceIndexDTO();
+			List<StockPriceDetailsDTO> stockList = new ArrayList<>();
+			for(StockPriceDetails stockDto : stockPriceDetailList) {
+				StockPriceDetailsDTO stockPriceDetailsDTO = new StockPriceDetailsDTO();
+				BeanUtils.copyProperties(stockDto, stockPriceDetailsDTO);
+				stockList.add(stockPriceDetailsDTO);
+			}
 			stockPriceIndexDto.setAvgStockPrice(getAvgStockPrice(companyCode, startDate, endDate));
 			stockPriceIndexDto.setMaxStockPrice(getMaxStockPrice(companyCode, startDate, endDate));
 			stockPriceIndexDto.setMinStockPrice(getMinStockPrice(companyCode, startDate, endDate));
-			stockPriceIndexDto
-			.setStockPriceList(StockMarketUtility.convertToStockPriceDetailsDtoList(stockPriceDetailList));
+			stockPriceIndexDto.setStockPriceList(stockList);
 			return stockPriceIndexDto;
 		} else {
 			throw new StockNotFoundException("Stock with Company Code " + companyCode + " not found from " + startDate
@@ -85,19 +93,33 @@ public class StockMarketServiceImpl implements StockMarketService {
 
 		if (CollectionUtils.isEmpty(stockDetails))
 			throw new StockNotFoundException("Stock prices not found for Company Code!!- "+companyCode+" ");
-		else
-			return stockDetails.stream().map(StockMarketUtility::convertToStockPriceDetailsDTO)
-					.collect(Collectors.toList());
+		else {
+			List<StockPriceDetailsDTO> stockList = new ArrayList<>();
+			for(StockPriceDetails stockDto : stockDetails) {
+				StockPriceDetailsDTO stockPriceDetailsDTO = new StockPriceDetailsDTO();
+				BeanUtils.copyProperties(stockDto, stockPriceDetailsDTO);
+				stockList.add(stockPriceDetailsDTO);
+			}
+			return stockList;
+		}
 	}
+
 	@Override
 	public CompanyStockDetailsDTO getAllStocksDetailsByCompanyCode(Long companyCode) {
-	
+
 		Optional<CompanyDetails> companyDetails = companyRepository.findById(companyCode);
+		
 		if(companyDetails.isPresent()) {
-			CompanyStockDetailsDTO companyStockDto = new CompanyStockDetailsDTO();
-			companyStockDto.setCompanyDto(StockMarketUtility.convertToCompanyDetailsDTO(companyDetails.get()));
-			companyStockDto.setStockPriceDTO(getStockByCode(companyCode));
-			return companyStockDto;
+			if (!getStockByCode(companyCode).isEmpty()) {
+				CompanyStockDetailsDTO companyStockDto = new CompanyStockDetailsDTO();
+				CompanyDetailsDTO companyDto = new CompanyDetailsDTO();
+				BeanUtils.copyProperties(companyDetails.get(), companyDto);
+				companyStockDto.setCompanyDto(companyDto);
+				companyStockDto.setStockPriceDTO(getStockByCode(companyCode));
+				return companyStockDto;
+			}
+			else
+				throw new StockNotFoundException("Stock prices details not found for Company Code!!- "+companyCode+" ");
 		}
 		else
 			throw new CompanyNotFoundException("Company not found with Code!!- "+companyCode+" Please enter valid companyCode...");   

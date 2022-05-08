@@ -29,8 +29,9 @@ public class CompanyDetailsController {
 		if(bindingResult.hasErrors()) {
 			throw new InvalidCompanyException("Company Details not valid");		
 		}
-		companyDetailsService.saveCompanyDetails(companyDetailsDTO);
-		return ResponseEntity.ok(companyDetailsDTO);
+		
+		CompanyDetailsDTO saveCompanyDetails = companyDetailsService.saveCompanyDetails(companyDetailsDTO);
+		return ResponseEntity.ok(saveCompanyDetails);
 	}
 
 	@DeleteMapping(value = "/deleteCompany/{companyCode}")

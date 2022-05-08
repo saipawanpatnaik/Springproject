@@ -43,13 +43,6 @@ public class GlobalExceptionHandler {
 				HttpStatus.BAD_REQUEST);
 	}
 
-	@ExceptionHandler(DataBaseException.class)
-	public ResponseEntity<ExceptionResponse> handler(DataBaseException ex) {
-		ExceptionResponse exception = new ExceptionResponse(ex.getMessage(), HttpStatus.BAD_REQUEST.value());
-		return new ResponseEntity<>(exception,
-				HttpStatus.BAD_REQUEST);
-	}
-
 	@ExceptionHandler(DataExistingException.class)
 	public ResponseEntity<ExceptionResponse> handler(DataExistingException ex) {
 		ExceptionResponse exception = new ExceptionResponse(ex.getMessage(), HttpStatus.BAD_REQUEST.value());

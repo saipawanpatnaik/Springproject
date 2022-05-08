@@ -20,7 +20,10 @@ import com.qart.stockmarket.dto.CompanyDetailsDTO;
 import com.qart.stockmarket.dto.StockPriceDetailsDTO;
 import com.qart.stockmarket.dto.StockPriceIndexDTO;
 import com.qart.stockmarket.exception.CompanyNotFoundException;
+import com.qart.stockmarket.exception.DataExistingException;
 import com.qart.stockmarket.exception.ExceptionResponse;
+import com.qart.stockmarket.exception.InvalidDateException;
+import com.qart.stockmarket.exception.InvalidStockException;
 import com.qart.stockmarket.exception.StockNotFoundException;
 import com.qart.stockmarket.services.CompanyDetailsService;
 import com.qart.stockmarket.services.StockMarketService;
@@ -36,9 +39,7 @@ import java.time.LocalDate;
 
 @WebMvcTest({CompanyDetailsController.class, StockPriceController.class})
 @AutoConfigureMockMvc
-public class ExceptionTests implements Serializable{
-
-	private static final long serialVersionUID = 5383694840817307616L;
+public class ExceptionTests {
 
 	@Autowired
 	private MockMvc mockMvc;
@@ -52,24 +53,6 @@ public class ExceptionTests implements Serializable{
 	//====================================================================================================================
 	//			1. Exceptions tests regarding Company Operations - Add and Delete
 	//====================================================================================================================	
-	@Test
-	public void testCompanyForInvalidDataException() throws Exception
-	{
-		CompanyDetailsDTO companyDto = MasterData.getCompanyDetailsDTO();
-		companyDto.setCompanyName("SE");
-
-		Mockito.when(companyInfoService.saveCompanyDetails(companyDto)).thenReturn(companyDto);
-
-		RequestBuilder requestBuilder = MockMvcRequestBuilders.post("/company/add-company")
-				.content(MasterData.asJsonString(companyDto))
-				.contentType(MediaType.APPLICATION_JSON)
-				.accept(MediaType.APPLICATION_JSON);
-
-		MvcResult result = mockMvc.perform(requestBuilder).andReturn();
-
-		testAssert(currentTest(), (result.getResponse().getStatus() == HttpStatus.BAD_REQUEST.value() ? true : false), exceptionTestFile);
-	}
-	//--------------------------------------------------------------------------------------------
 	@Test
 	public void testCompanyForExceptionUponAddingCompanyWithNullValue() throws Exception
 	{
@@ -87,24 +70,60 @@ public class ExceptionTests implements Serializable{
 
 		testAssert(currentTest(), result.getResponse().getStatus() == HttpStatus.BAD_REQUEST.value() ? true : false, exceptionTestFile);		
 	}
+
+	@Test
+	public void testCompanyForExceptionUponAddingNewCompany() throws Exception
+	{
+		CompanyDetailsDTO companyDto = MasterData.getCompanyDetailsDTO();
+		companyDto.setCompanyName("SE");
+
+		Mockito.when(companyInfoService.saveCompanyDetails(companyDto)).thenReturn(companyDto);
+
+		RequestBuilder requestBuilder = MockMvcRequestBuilders.post("/company/add-company")
+				.content(MasterData.asJsonString(companyDto))
+				.contentType(MediaType.APPLICATION_JSON)
+				.accept(MediaType.APPLICATION_JSON);
+
+		MvcResult result = mockMvc.perform(requestBuilder).andReturn();
+
+		testAssert(currentTest(), (result.getResponse().getStatus() == HttpStatus.BAD_REQUEST.value() ? true : false), exceptionTestFile);
+	}
+	
+	@Test
+	public void testCompanyDataExistingException() throws Exception
+	{
+		ExceptionResponse exResponse = new ExceptionResponse("Company already exists!",
+				HttpStatus.NOT_FOUND.value());
+
+		CompanyDetailsDTO companyDto = MasterData.getCompanyDetailsDTO();
+		
+		Mockito.when(companyInfoService.saveCompanyDetails(companyDto)).thenThrow(new DataExistingException("Company already exists!"));
+
+		RequestBuilder requestBuilder = MockMvcRequestBuilders.post("/company/add-company")
+				.contentType(MediaType.APPLICATION_JSON)
+				.accept(MediaType.APPLICATION_JSON);
+
+		MvcResult result = mockMvc.perform(requestBuilder).andReturn();
+		
+		testAssert(currentTest(),result.getResponse().getStatus() == HttpStatus.BAD_REQUEST.value() ? true : false, exceptionTestFile);		
+	}
+	
+	
 	//--------------------------------------------------------------------------------------------
 	//--------------------------------------------------------------------------------------------
 	@Test
 	public void testCompanyForExceptionUponDeletingCompanyByNullValue() throws Exception
 	{
-		//CompanyDetailsDTO companyDto = MasterData.getCompanyDetailsDTO();
-		Mockito.when(companyInfoService.deleteCompany(2L)).thenReturn(null);
+		Mockito.when(companyInfoService.deleteCompany(2L)).thenThrow(new CompanyNotFoundException("Company with Id - 2 not Found!"));
 
 		RequestBuilder requestBuilder = MockMvcRequestBuilders.delete("/company/deleteCompany/2")
 				.contentType(MediaType.APPLICATION_JSON)
 				.accept(MediaType.APPLICATION_JSON);
 
 		MvcResult result = mockMvc.perform(requestBuilder).andReturn();
-		System.out.println("***************testCompanyForExceptionUponDeletingCompanyByNullValue**********************************************************"
-				+ "*************************************************"
-				+ result.getResponse().getStatus());
 		testAssert(currentTest(), result.getResponse().getStatus() == HttpStatus.BAD_REQUEST.value() ? true : false, exceptionTestFile);		
 	}
+	
 	@Test
 	public void testCompanyNotFoundExceptionsUponDeleting() throws Exception
 	{
@@ -118,9 +137,6 @@ public class ExceptionTests implements Serializable{
 				.accept(MediaType.APPLICATION_JSON);
 
 		MvcResult result = mockMvc.perform(requestBuilder).andReturn();
-		System.out.println("*****************testCompanyNotFoundExceptionsUponDeleting********************************************************"
-				+ "*************************************************"
-				+ result.getResponse().getStatus());
 		testAssert(currentTest(),
 				(result.getResponse().getContentAsString().contains(exResponse.getMessage()) ? "true" : "false"),
 				exceptionTestFile);
@@ -132,76 +148,53 @@ public class ExceptionTests implements Serializable{
 
 	//--------------------------------------------------------------------------------------------
 	@Test
-	public void testCompanyNotFoundExceptionsUponAddingStocks() throws Exception
+	public void testStockForExceptionUponAddingStockWithNullValue() throws Exception
 	{
 		StockPriceDetailsDTO stockDto = MasterData.getStockPriceDetailsDTO();
-		ExceptionResponse exResponse = new ExceptionResponse("Company not Found!",
-				HttpStatus.NOT_FOUND.value());
+		//stockDto.setCurrentStockPrice(null);
+		stockDto.setStockPriceDate(null);
 
-		Mockito.when(this.stockMarketService.saveStockPriceDetails(stockDto))
-		.thenThrow(new CompanyNotFoundException("Company not Found!"));
-		RequestBuilder requestBuilder = MockMvcRequestBuilders.delete("/stock/add-stock")
+		Mockito.when(stockMarketService.saveStockPriceDetails(stockDto)).thenReturn(stockDto);
+
+		RequestBuilder requestBuilder = MockMvcRequestBuilders.post("/stock/add-stock")
+				.content(MasterData.asJsonString(stockDto))
 				.contentType(MediaType.APPLICATION_JSON)
 				.accept(MediaType.APPLICATION_JSON);
 
 		MvcResult result = mockMvc.perform(requestBuilder).andReturn();
-		System.out.println("*********testStockForExceptionUponFetchingStockDetailsByNullValue****************************************************************"
-				+ "*************************************************"
-				+ result.getResponse().getStatus());
-		testAssert(currentTest(),
-				(result.getResponse().getContentAsString().contains(exResponse.getMessage()) ? "true" : "false"),
-				exceptionTestFile);
+
+		testAssert(currentTest(), result.getResponse().getStatus() == HttpStatus.BAD_REQUEST.value() ? true : false, exceptionTestFile);		
 	}
-		@Test
-		public void testStockForInvalidStockException() throws Exception
-		{
-			StockPriceDetailsDTO stockDto = MasterData.getStockPriceDetailsDTO();
-			stockDto.setCurrentStockPrice(12.0);
-	
-			Mockito.when(stockMarketService.saveStockPriceDetails(stockDto)).thenReturn(stockDto);
-	
-			RequestBuilder requestBuilder = MockMvcRequestBuilders.post("/stock/add-stock")
-					.content(MasterData.asJsonString(stockDto))
-					.contentType(MediaType.APPLICATION_JSON)
-					.accept(MediaType.APPLICATION_JSON);
-	
-			MvcResult result = mockMvc.perform(requestBuilder).andReturn();
-	
-			testAssert(currentTest(), (result.getResponse().getStatus() == HttpStatus.BAD_REQUEST.value() ? true : false), exceptionTestFile);
-		}
-	
-		@Test
-		public void testStockForExceptionUponAddingStockWithNullValue() throws Exception
-		{
-			StockPriceDetailsDTO stockDto = MasterData.getStockPriceDetailsDTO();
-			stockDto.setCurrentStockPrice(null);
-	
-			Mockito.when(stockMarketService.saveStockPriceDetails(stockDto)).thenReturn(stockDto);
-	
-			RequestBuilder requestBuilder = MockMvcRequestBuilders.post("/stock/add-stock")
-					.content(MasterData.asJsonString(stockDto))
-					.contentType(MediaType.APPLICATION_JSON)
-					.accept(MediaType.APPLICATION_JSON);
-	
-			MvcResult result = mockMvc.perform(requestBuilder).andReturn();
-	
-	
-			testAssert(currentTest(), result.getResponse().getStatus() == HttpStatus.BAD_REQUEST.value() ? true : false, exceptionTestFile);		
-		}
 
 	@Test
 	public void testStockForExceptionUponFetchingStockDetailsByNullValue() throws Exception
 	{
-		RequestBuilder requestBuilder = MockMvcRequestBuilders.get("/stock/getStockByCompanyCode/2")
+		RequestBuilder requestBuilder = MockMvcRequestBuilders.get("/stock/getStockByCompanyCode/")
 				.contentType(MediaType.APPLICATION_JSON)
 				.accept(MediaType.APPLICATION_JSON);
 
 		MvcResult result = mockMvc.perform(requestBuilder).andReturn();
-		//pawan
-		System.out.println("*********testStockForExceptionUponFetchingStockDetailsByNullValue****************************************************************"
-				+ "*************************************************"
-				+ result.getResponse().getStatus());
-		testAssert(currentTest(), result.getResponse().getStatus() == HttpStatus.BAD_REQUEST.value() ? true : false, exceptionTestFile);		
+
+		testAssert(currentTest(), result.getResponse().getStatus() == 404 ? true : false, exceptionTestFile);		
+	}
+	
+	@Test
+	public void testInvalidDateExceptionException() throws Exception
+	{
+		ExceptionResponse exResponse = new ExceptionResponse("Invalid data..! Please provide current or past date ",
+				HttpStatus.NOT_FOUND.value());
+		LocalDate date = LocalDate.parse("2050-05-06");
+		StockPriceDetailsDTO stockDto = MasterData.getStockPriceDetailsDTO();
+		stockDto.setStockPriceDate(date);
+		
+		Mockito.when(stockMarketService.saveStockPriceDetails(stockDto)).thenThrow(new InvalidDateException("Invalid data..! Please provide current or past date"));
+
+		RequestBuilder requestBuilder = MockMvcRequestBuilders.post("/stock/add-stock")
+				.contentType(MediaType.APPLICATION_JSON)
+				.accept(MediaType.APPLICATION_JSON);
+
+		MvcResult result = mockMvc.perform(requestBuilder).andReturn();
+		testAssert(currentTest(),result.getResponse().getStatus() == HttpStatus.BAD_REQUEST.value() ? true : false, exceptionTestFile);		
 	}
 
 	@Test
@@ -225,4 +218,5 @@ public class ExceptionTests implements Serializable{
 				(result.getResponse().getContentAsString().contains(exResponse.getMessage()) ? "true" : "false"),
 				exceptionTestFile);
 	}
+	
 }
